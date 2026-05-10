@@ -26,6 +26,7 @@ export default function NowPlaying({
   lyrics
 }) {
   const [visualizerOn, setVisualizerOn] = useState(true);
+  const [vizMode, setVizMode] = useState('bars'); // bars, circle, wave
   const [showEq, setShowEq] = useState(false);
   const [showSleep, setShowSleep] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
@@ -44,40 +45,40 @@ export default function NowPlaying({
     if (!audioRef.current) return;
 
     try {
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const analyzer = audioContext.createAnalyser();
-      analyzer.fftSize = 256;
-      
-      const source = audioContext.createMediaElementSource(audioRef.current);
-      
-      const bassFilter = audioContext.createBiquadFilter();
-      bassFilter.type = 'lowshelf';
-      bassFilter.frequency.value = 200;
-      bassFilter.gain.value = eqSettings.bass;
+      if (!analyzerRef.current) {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const analyzer = audioContext.createAnalyser();
+        analyzer.fftSize = 256;
+        
+        const source = audioContext.createMediaElementSource(audioRef.current);
+        
+        const bassFilter = audioContext.createBiquadFilter();
+        bassFilter.type = 'lowshelf';
+        bassFilter.frequency.value = 200;
+        
+        const midFilter = audioContext.createBiquadFilter();
+        midFilter.type = 'peaking';
+        midFilter.frequency.value = 1000;
+        midFilter.Q.value = 1;
 
-      const midFilter = audioContext.createBiquadFilter();
-      midFilter.type = 'peaking';
-      midFilter.frequency.value = 1000;
-      midFilter.Q.value = 1;
-      midFilter.gain.value = eqSettings.mid;
+        const trebleFilter = audioContext.createBiquadFilter();
+        trebleFilter.type = 'highshelf';
+        trebleFilter.frequency.value = 3000;
 
-      const trebleFilter = audioContext.createBiquadFilter();
-      trebleFilter.type = 'highshelf';
-      trebleFilter.frequency.value = 3000;
-      trebleFilter.gain.value = eqSettings.treble;
+        source.connect(bassFilter);
+        bassFilter.connect(midFilter);
+        midFilter.connect(trebleFilter);
+        trebleFilter.connect(analyzer);
+        analyzer.connect(audioContext.destination);
+        
+        analyzerRef.current = analyzer;
+        sourceRef.current = source;
+        bassFilterRef.current = bassFilter;
+        midFilterRef.current = midFilter;
+        trebleFilterRef.current = trebleFilter;
+      }
 
-      source.connect(bassFilter);
-      bassFilter.connect(midFilter);
-      midFilter.connect(trebleFilter);
-      trebleFilter.connect(analyzer);
-      analyzer.connect(audioContext.destination);
-      
-      analyzerRef.current = analyzer;
-      sourceRef.current = source;
-      bassFilterRef.current = bassFilter;
-      midFilterRef.current = midFilter;
-      trebleFilterRef.current = trebleFilter;
-
+      const analyzer = analyzerRef.current;
       const bufferLength = analyzer.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
       const canvas = canvasRef.current;
@@ -89,19 +90,52 @@ export default function NowPlaying({
         analyzer.getByteFrequencyData(dataArray);
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const barWidth = (canvas.width / bufferLength) * 2;
-        let x = 0;
-
-        for (let i = 0; i < bufferLength; i++) {
-          const barHeight = (dataArray[i] / 255) * canvas.height;
-          const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
-          gradient.addColorStop(0, themeColor + '33');
-          gradient.addColorStop(1, themeColor);
-          ctx.fillStyle = gradient;
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = themeColor;
-          ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-          x += barWidth + 2;
+        
+        if (vizMode === 'bars') {
+          const barWidth = (canvas.width / bufferLength) * 2;
+          let x = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            const barHeight = (dataArray[i] / 255) * canvas.height;
+            const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
+            gradient.addColorStop(0, themeColor + '33');
+            gradient.addColorStop(1, themeColor);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+            x += barWidth + 2;
+          }
+        } else if (vizMode === 'circle') {
+          const centerX = canvas.width / 2;
+          const centerY = canvas.height / 2;
+          const radius = 30;
+          for (let i = 0; i < bufferLength; i++) {
+            const barHeight = (dataArray[i] / 255) * 40;
+            const angle = (i / bufferLength) * Math.PI * 2;
+            const x1 = centerX + Math.cos(angle) * radius;
+            const y1 = centerY + Math.sin(angle) * radius;
+            const x2 = centerX + Math.cos(angle) * (radius + barHeight);
+            const y2 = centerY + Math.sin(angle) * (radius + barHeight);
+            ctx.strokeStyle = themeColor;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+          }
+        } else if (vizMode === 'wave') {
+          ctx.beginPath();
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = themeColor;
+          const sliceWidth = canvas.width / bufferLength;
+          let x = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = (v * canvas.height) / 2;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+            x += sliceWidth;
+          }
+          ctx.lineTo(canvas.width, canvas.height / 2);
+          ctx.stroke();
         }
       };
 
@@ -109,17 +143,11 @@ export default function NowPlaying({
 
       return () => {
         cancelAnimationFrame(animationRef.current);
-        source.disconnect();
-        bassFilter.disconnect();
-        midFilter.disconnect();
-        trebleFilter.disconnect();
-        analyzer.disconnect();
-        audioContext.close();
       };
     } catch (e) {
       console.error("Audio Pipeline Error:", e);
     }
-  }, [audioRef, visualizerOn, themeColor]);
+  }, [audioRef, visualizerOn, themeColor, vizMode]);
 
   useEffect(() => {
     if (bassFilterRef.current) bassFilterRef.current.gain.value = eqSettings.bass;
@@ -173,7 +201,23 @@ export default function NowPlaying({
 
         <div className="np-artwork-container">
           <img className="np-artwork" src={current?.thumbnail} alt="" />
-          {visualizerOn && !showLyrics && <canvas ref={canvasRef} className="np-visualizer" width="400" height="100"></canvas>}
+          {visualizerOn && !showLyrics && (
+            <>
+              <canvas ref={canvasRef} className="np-visualizer" width="400" height="100"></canvas>
+              <button 
+                className="viz-toggle" 
+                onClick={() => setVizMode(v => v === 'bars' ? 'circle' : v === 'circle' ? 'wave' : 'bars')}
+                style={{
+                  position:'absolute', bottom:'10px', right:'10px', 
+                  background:'rgba(0,0,0,0.5)', border:'none', color:'#fff', 
+                  fontSize:'10px', padding:'4px 8px', borderRadius:'10px', 
+                  cursor:'pointer', zIndex:10, textTransform:'uppercase'
+                }}
+              >
+                {vizMode}
+              </button>
+            </>
+          )}
         </div>
 
         {showEq && (

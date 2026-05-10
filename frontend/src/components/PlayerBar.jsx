@@ -24,7 +24,9 @@ export default function PlayerBar({
   playlists,
   toggleLikeCurrent,
   openNowPlaying,
-  themeColor
+  themeColor,
+  miniMode,
+  setMiniMode
 }) {
   const pct = duration ? (currentTime / duration) * 100 : 0;
   const isLiked = current && playlists["Liked Songs"]?.some(s => s.id === current.id);
@@ -96,6 +98,16 @@ export default function PlayerBar({
           title="Repeat"
         >
           <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+        </button>
+        <button className="p-btn" onClick={() => setMiniMode(!miniMode)} title="Mini Player" style={{color: miniMode ? themeColor : '#fff'}}>
+          <svg viewBox="0 0 24 24"><path d="M19 11h-8v6h8v-6zm4 8V4.98C23 3.88 22.1 3 21 3H3c-1.1 0-2 .88-2 1.98V19c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 .02H3V4.97h18v14.05z"/></svg>
+        </button>
+        <button className="p-btn p-mobile-play" onClick={togglePlay} style={{display:'none'}}>
+          {isPlaying ? (
+            <svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          ) : (
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          )}
         </button>
         <button className="p-btn" onClick={showQueue} title="Queue">
           <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z"/></svg>

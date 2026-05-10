@@ -105,7 +105,7 @@ class Handler(BaseHTTPRequestHandler):
         opts = {"quiet": True, "no_warnings": True, "extract_flat": True, "skip_download": True}
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(f"ytsearch10:{query}", download=False)
+                info = ydl.extract_info(f"ytsearch100:{query}", download=False)
             results = []
             for e in (info.get("entries") or []):
                 if not e: continue
