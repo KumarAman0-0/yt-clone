@@ -286,17 +286,32 @@ body {
   gap: 32px;
 }
 
-.np-close {
+.np-top-nav {
   position: absolute;
-  top: 24px; left: 24px;
-  background: rgba(255,255,255,0.05); border: none; color: #fff; cursor: pointer;
-  padding: 10px;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 24px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 100;
+}
+
+.np-close {
+  background: rgba(255,255,255,0.05); 
+  border: none; 
+  color: #fff; 
+  cursor: pointer;
+  padding: 8px;
   border-radius: 50%;
   transition: background 0.2s;
-  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .np-close:hover { background: rgba(255,255,255,0.1); }
-.np-close svg { width: 32px; height: 32px; fill: currentColor; }
+.np-close svg { width: 28px; height: 28px; fill: currentColor; }
 
 .np-artwork-container {
   position: relative;
@@ -646,12 +661,13 @@ body {
   .player-info { max-width: 100%; }
 
   /* Now Playing Mobile */
-  .np-content { padding: 40px 24px; }
-  .np-artwork-container { width: 85vw; }
-  .np-title { font-size: 24px; }
-  .np-artist { font-size: 16px; }
-  .np-btns { gap: 32px; }
-  .p-play-large { width: 72px !important; height: 72px !important; }
+  .np-top-nav { padding: 16px 20px; }
+  .np-content { padding: 80px 24px 40px; justify-content: space-between; }
+  .np-artwork-container { width: min(85vw, 300px); }
+  .np-title { font-size: clamp(20px, 5vw, 28px); }
+  .np-artist { font-size: clamp(14px, 4vw, 18px); }
+  .np-btns { gap: clamp(24px, 8vw, 48px); }
+  .p-play-large { width: 64px !important; height: 64px !important; }
 }
 
 @media (max-width: 480px) {
@@ -774,13 +790,6 @@ body {
   text-align: right;
   font-size: 14px;
   font-family: monospace;
-}
-.np-top-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  padding: 10px 0;
 }
 
 .sleep-options {

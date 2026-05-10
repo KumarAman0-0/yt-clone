@@ -155,6 +155,30 @@ export default function App() {
     localStorage.setItem('ytm_bg', bgGradient);
   }, [bgGradient]);
 
+  useEffect(() => {
+    if ('mediaSession' in navigator && current) {
+      navigator.mediaSession.metadata = new window.MediaMetadata({
+        title: current.title,
+        artist: current.channel,
+        album: 'TermiMusic',
+        artwork: [
+          { src: current.thumbnail, sizes: '512x512', type: 'image/jpeg' }
+        ]
+      });
+
+      navigator.mediaSession.setActionHandler('play', togglePlay);
+      navigator.mediaSession.setActionHandler('pause', togglePlay);
+      navigator.mediaSession.setActionHandler('previoustrack', playPrev);
+      navigator.mediaSession.setActionHandler('nexttrack', playNext);
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (audioRef.current) {
+          audioRef.current.currentTime = details.seekTime;
+          setCurrentTime(details.seekTime);
+        }
+      });
+    }
+  }, [current, togglePlay, playNext, playPrev]);
+
   const playSong = async (song) => {
     if (current) setHistory(prev => [...prev, current]);
     setCurrent(song);
@@ -288,6 +312,12 @@ export default function App() {
       audioRef.current.volume = volume;
     }
   }, [volume]);
+
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }
+  }, [isPlaying]);
 
   const seek = (pct) => {
     const audio = audioRef.current;
