@@ -203,6 +203,8 @@ class Handler(BaseHTTPRequestHandler):
         print(f"  {fmt % args}")
 
 if __name__ == "__main__":
-    port = 5000
+    import os
+    # Default to 5000 for local development, but use PORT env var for deployment
+    port = int(os.environ.get("PORT", 5000))
     print(f"\n🎵  TermiMusic  →  http://localhost:{port}\n")
     HTTPServer(("0.0.0.0", port), Handler).serve_forever()
