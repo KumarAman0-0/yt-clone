@@ -101,15 +101,6 @@ Open **http://localhost:5000** in your browser. 🎵
 
 ---
 
-## 🐳 Docker (Optional)
-
-```bash
-docker build -t yt-music .
-docker run -p 5000:5000 yt-music
-```
-
----
-
 ## 📱 Mobile Usage
 
 The app is fully responsive:
