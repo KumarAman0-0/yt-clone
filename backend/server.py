@@ -1,13 +1,16 @@
 """
-TermiMusic – Minimal HTTP server (stdlib only) + yt-dlp
+Music – Minimal HTTP server (stdlib only) + yt-dlp
 No Flask, no extra dependencies — just Python + yt-dlp
 """
 import json
 import os
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 from urllib.parse import urlparse, parse_qs
 import yt_dlp
+import requests
+import time
 
 # ── Simple in-memory cache ────────────────────────────────────────────────────
 _cache = {}
@@ -23,6 +26,19 @@ def set_cache(key, value):
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "frontend"))
+
+# ── Keep-Alive (Ping) ────────────────────────────────────────────────────────
+def keep_alive(url):
+    """Simple loop to ping the server every 10 minutes to prevent sleeping."""
+    while True:
+        try:
+            # We use a short timeout so we don't hang if the server is slow
+            requests.get(url, timeout=10)
+            print(f"  [Keep-Alive] Pinged {url} successfully.")
+        except Exception as e:
+            print(f"  [Keep-Alive] Ping failed: {e}")
+        # Wait 10 minutes (600 seconds)
+        time.sleep(600)
 
 # ── Request Handler ───────────────────────────────────────────────────────────
 class Handler(BaseHTTPRequestHandler):
@@ -102,10 +118,18 @@ class Handler(BaseHTTPRequestHandler):
         if hit:
             self._json(hit)
             return
-        opts = {"quiet": True, "no_warnings": True, "extract_flat": True, "skip_download": True}
+        opts = {
+            "quiet": True, 
+            "no_warnings": True, 
+            "extract_flat": True, 
+            "skip_download": True,
+            # Use mweb client — avoids YouTube bot-detection that blocks default web client
+            "extractor_args": {"youtube": {"player_client": ["mweb"]}},
+        }
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(f"ytsearch100:{query}", download=False)
+                # Using a slightly different search query to avoid direct patterns
+                info = ydl.extract_info(f"ytsearch20:{query}", download=False)
             results = []
             for e in (info.get("entries") or []):
                 if not e: continue
@@ -131,7 +155,16 @@ class Handler(BaseHTTPRequestHandler):
         if hit:
             self._json(hit)
             return
-        opts = {"quiet": True, "no_warnings": True, "skip_download": True}
+        opts = {
+            "quiet": True, 
+            "no_warnings": True, 
+            "skip_download": True,
+            # Force certain clients that are less likely to be blocked
+            "extractor_args": {"youtube": {"player_client": ["ios", "android", "web"]}},
+            "http_headers": {
+                "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1",
+            }
+        }
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(f"https://www.youtube.com/watch?v={vid}", download=False)
@@ -160,12 +193,12 @@ class Handler(BaseHTTPRequestHandler):
     def _lyrics(self, vid):
         lrc = [
             {"time": 0, "text": "♪ Music Playing ♪"},
-            {"time": 10, "text": "Welcome to TermiMusic"},
+            {"time": 10, "text": "Welcome to Music"},
             {"time": 20, "text": "Enjoy your favorite tracks"},
             {"time": 30, "text": "With high-fidelity sound"},
             {"time": 40, "text": "And premium features"},
             {"time": 50, "text": "♪ Instrumental Break ♪"},
-            {"time": 70, "text": "TermiMusic: Your Music, Your Way"},
+            {"time": 70, "text": "Music: Your Music, Your Way"},
             {"time": 90, "text": "Thank you for listening!"}
         ]
         self._json({"lyrics": lrc})
@@ -176,7 +209,13 @@ class Handler(BaseHTTPRequestHandler):
         if hit:
             self._json(hit)
             return
-        opts = {"quiet": True, "no_warnings": True, "extract_flat": True, "skip_download": True}
+        opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "extract_flat": True,
+            "skip_download": True,
+            "extractor_args": {"youtube": {"player_client": ["mweb"]}},
+        }
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(f"https://www.youtube.com/watch?v={vid}", download=False)
@@ -202,9 +241,22 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print(f"  {fmt % args}")
 
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    """Handle each request in a separate thread (non-blocking)."""
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 if __name__ == "__main__":
     import os
     # Default to 5000 for local development, but use PORT env var for deployment
     port = int(os.environ.get("PORT", 5000))
-    print(f"\n🎵  TermiMusic  →  http://localhost:{port}\n")
-    HTTPServer(("0.0.0.0", port), Handler).serve_forever()
+    
+    # Start Keep-Alive thread if APP_URL is set in environment variables
+    app_url = os.environ.get("APP_URL")
+    if app_url:
+        print(f"  [Keep-Alive] Starting pinger for: {app_url}")
+        threading.Thread(target=keep_alive, args=(app_url,), daemon=True).start()
+
+    print(f"\n🎵  Music  →  http://localhost:{port}\n")
+    ThreadedHTTPServer(("0.0.0.0", port), Handler).serve_forever()

@@ -141,7 +141,7 @@ export default function App() {
     showToast('Added to queue');
   };
 
-  const doSearch = async (q) => {
+  const doSearch = useCallback(async (q) => {
     setSearchQuery(q);
     setView('search');
     setLoading(true);
@@ -156,7 +156,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const getDominantColor = (url) => {
     return new Promise((resolve) => {
@@ -362,7 +362,7 @@ export default function App() {
       navigator.mediaSession.metadata = new window.MediaMetadata({
         title: current.title,
         artist: current.channel,
-        album: 'TermiMusic',
+        album: 'Music',
         artwork: [
           { src: current.thumbnail, sizes: '512x512', type: 'image/jpeg' }
         ]

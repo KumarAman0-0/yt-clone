@@ -8,7 +8,7 @@ export default function TopBar({ doSearch }) {
       if (query.trim() !== '') {
         doSearch(query.trim());
       }
-    }, 500);
+    }, 800);
     return () => clearTimeout(st);
   }, [query, doSearch]);
 
