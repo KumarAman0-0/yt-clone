@@ -43,6 +43,14 @@ def keep_alive(url):
 # ── Request Handler ───────────────────────────────────────────────────────────
 class Handler(BaseHTTPRequestHandler):
 
+    def do_OPTIONS(self):
+        """Handle CORS preflight requests."""
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
     def do_GET(self):
         parsed = urlparse(self.path)
         path   = parsed.path
@@ -65,8 +73,12 @@ class Handler(BaseHTTPRequestHandler):
 
         # Serve static files from frontend/dist
         if path == "/":
-            path = "/index.html"
-            
+            fp = os.path.join(FRONTEND_DIR, "dist", "index.html")
+            if not os.path.isfile(fp):
+                # No frontend deployed — show API status page
+                self._api_status()
+                return
+
         fp = os.path.join(FRONTEND_DIR, "dist", path.lstrip("/"))
         if not os.path.isfile(fp):
             # Fallback to index.html for SPA
@@ -95,10 +107,63 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(data)))
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(data)
         except Exception as e:
             self.send_error(500, str(e))
+
+    def _api_status(self):
+        html = b"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>YTMusic API</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:#0f0f0f; color:#fff; font-family:'Segoe UI',sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; }
+    .card { background:#1a1a1a; border:1px solid #333; border-radius:16px; padding:40px 48px; max-width:540px; width:90%; text-align:center; }
+    .badge { display:inline-flex; align-items:center; gap:8px; background:#1f3a1f; border:1px solid #2d6a2d; color:#4caf50; padding:6px 16px; border-radius:100px; font-size:14px; font-weight:600; margin-bottom:24px; }
+    .dot { width:8px; height:8px; border-radius:50%; background:#4caf50; animation:pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    h1 { font-size:28px; margin-bottom:8px; }
+    p  { color:#888; margin-bottom:32px; font-size:15px; }
+    .endpoints { text-align:left; background:#111; border-radius:12px; padding:20px 24px; }
+    .ep { padding:10px 0; border-bottom:1px solid #222; font-size:14px; }
+    .ep:last-child { border-bottom:none; }
+    .method { background:#1a3a5c; color:#64b5f6; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:700; margin-right:8px; }
+    .path { color:#fff; font-family:monospace; }
+    .desc { color:#666; font-size:12px; margin-top:4px; padding-left:48px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge"><div class="dot"></div> API is Live</div>
+    <h1>🎵 YTMusic Backend</h1>
+    <p>Powered by yt-dlp &mdash; ready to serve requests.</p>
+    <div class="endpoints">
+      <div class="ep">
+        <span class="method">GET</span><span class="path">/api/search?q=</span>
+        <div class="desc">Search songs and videos</div>
+      </div>
+      <div class="ep">
+        <span class="method">GET</span><span class="path">/api/stream/&lt;id&gt;</span>
+        <div class="desc">Stream audio for a video ID</div>
+      </div>
+      <div class="ep">
+        <span class="method">GET</span><span class="path">/api/lyrics/&lt;id&gt;</span>
+        <div class="desc">Fetch lyrics</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>"""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(html)))
+        self.end_headers()
+        self.wfile.write(html)
 
     def _json(self, obj, status=200):
         body = json.dumps(obj).encode()

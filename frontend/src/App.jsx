@@ -5,6 +5,7 @@ import MainContent from './components/MainContent';
 import PlayerBar from './components/PlayerBar';
 import NowPlaying from './components/NowPlaying';
 import VideoPlayer from './components/VideoPlayer';
+import { api } from './api';
 import './index.css';
 
 export default function App() {
@@ -177,7 +178,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const res = await fetch(api.search(q));
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setResults(data);
@@ -281,11 +282,11 @@ export default function App() {
       setThemeColor(color);
     }
     try {
-      const res = await fetch(`/api/stream/${song.id}?quality=${quality}`);
+      const res = await fetch(api.stream(song.id, quality));
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       
-      const lres = await fetch(`/api/lyrics/${song.id}`);
+      const lres = await fetch(api.lyrics(song.id));
       const ldata = await lres.json();
       setLyrics(ldata.lyrics);
 
@@ -305,7 +306,7 @@ export default function App() {
     radioFetchingRef.current = true;
     try {
       const q = buildRadioQuery(song);
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const res = await fetch(api.search(q));
       const data = await res.json();
       if (!data.error && Array.isArray(data) && data.length > 0) {
         const radio = data.filter(s => s.id !== song.id).slice(0, 5);
@@ -327,7 +328,7 @@ export default function App() {
     radioFetchingRef.current = true;
     try {
       const q = buildVideoRadioQuery(video);
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const res = await fetch(api.search(q));
       const data = await res.json();
       if (!data.error && Array.isArray(data) && data.length > 0) {
         const related = data.filter(v => v.id !== video.id).slice(0, 5);
@@ -365,7 +366,7 @@ export default function App() {
     
     if (!audio.src || audio.src === window.location.href) {
       try {
-        const res = await fetch(`/api/stream/${current.id}`);
+        const res = await fetch(api.stream(current.id));
         const data = await res.json();
         if (data.error) throw new Error(data.error);
         audio.src = data.stream_url;
@@ -522,7 +523,7 @@ export default function App() {
   }, [current, togglePlay, playNext, playPrev]);
 
   return (
-    <div className={`app ${miniMode ? 'mini-active' : ''}`}>
+    <div className={`app ${miniMode ? 'mini-active' : ''} ${mode === 'video' ? 'video-mode' : ''}`}>
       {splash && (
         <div className="loading-screen">
           <div className="loading-logo">
@@ -573,29 +574,31 @@ export default function App() {
         toggleSaveVideo={toggleSaveVideo}
       />
       
-      <PlayerBar 
-        current={current}
-        isPlaying={isPlaying}
-        togglePlay={togglePlay}
-        playNext={playNext}
-        playPrev={playPrev}
-        shuffle={shuffle}
-        toggleShuffle={toggleShuffle}
-        repeat={repeat}
-        toggleRepeat={toggleRepeat}
-        showQueue={() => setView('queue')}
-        currentTime={currentTime}
-        duration={duration}
-        volume={volume}
-        setVolume={setVolume}
-        seek={seek}
-        playlists={playlists}
-        toggleLikeCurrent={toggleLikeCurrent}
-        openNowPlaying={() => setNowPlaying(true)}
-        themeColor={themeColor}
-        miniMode={miniMode}
-        setMiniMode={setMiniMode}
-      />
+      {mode !== 'video' && (
+        <PlayerBar 
+          current={current}
+          isPlaying={isPlaying}
+          togglePlay={togglePlay}
+          playNext={playNext}
+          playPrev={playPrev}
+          shuffle={shuffle}
+          toggleShuffle={toggleShuffle}
+          repeat={repeat}
+          toggleRepeat={toggleRepeat}
+          showQueue={() => setView('queue')}
+          currentTime={currentTime}
+          duration={duration}
+          volume={volume}
+          setVolume={setVolume}
+          seek={seek}
+          playlists={playlists}
+          toggleLikeCurrent={toggleLikeCurrent}
+          openNowPlaying={() => setNowPlaying(true)}
+          themeColor={themeColor}
+          miniMode={miniMode}
+          setMiniMode={setMiniMode}
+        />
+      )}
 
       {activeVideo && (
         <VideoPlayer
