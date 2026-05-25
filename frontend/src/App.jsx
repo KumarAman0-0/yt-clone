@@ -4,10 +4,18 @@ import TopBar from './components/TopBar';
 import MainContent from './components/MainContent';
 import PlayerBar from './components/PlayerBar';
 import NowPlaying from './components/NowPlaying';
+import VideoPlayer from './components/VideoPlayer';
 import './index.css';
 
 export default function App() {
-  const [view, setView] = useState('home'); // home, explore, library, search, queue
+  const [view, setView] = useState('home');
+  const [mode, setMode] = useState(() => localStorage.getItem('ytm_mode') || 'music');
+  const [activeVideo, setActiveVideo] = useState(null);
+  const [channelName, setChannelName] = useState(''); // for channel view
+  const [savedVideos, setSavedVideos] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ytm_saved_videos')) || []; }
+    catch(e) { return []; }
+  });
   const [nowPlaying, setNowPlaying] = useState(false);
   const [splash, setSplash] = useState(true);
   const [current, setCurrent] = useState(() => {
@@ -56,6 +64,28 @@ export default function App() {
     document.documentElement.style.setProperty('--accent', themeColor);
     localStorage.setItem('ytm_theme', themeColor);
   }, [themeColor]);
+
+  useEffect(() => {
+    localStorage.setItem('ytm_mode', mode);
+  }, [mode]);
+
+  useEffect(() => {
+    localStorage.setItem('ytm_saved_videos', JSON.stringify(savedVideos));
+  }, [savedVideos]);
+
+  const toggleSaveVideo = (video) => {
+    setSavedVideos(prev => {
+      const exists = prev.find(v => v.id === video.id);
+      if (exists) return prev.filter(v => v.id !== video.id);
+      return [video, ...prev];
+    });
+  };
+
+  const doChannelSearch = (channel) => {
+    setChannelName(channel);
+    setView('channel');
+    doSearch(channel);
+  };
 
   const [currentTime, setCurrentTime] = useState(() => parseFloat(localStorage.getItem('ytm_currentTime')) || 0);
   const [duration, setDuration] = useState(0);
@@ -158,6 +188,49 @@ export default function App() {
     }
   }, []);
 
+  // ── Smart Radio Query Builder ────────────────────────────────
+  const buildRadioQuery = (song) => {
+    const title = song.title || '';
+    const channel = song.channel || '';
+
+    // Genre / era keywords detection
+    const eraMap = [
+      { keys: ['90s', '1990', '1991','1992','1993','1994','1995','1996','1997','1998','1999'], label: '90s hits songs' },
+      { keys: ['80s', '1980','1981','1982','1983','1984','1985','1986','1987','1988','1989'], label: '80s classic songs' },
+      { keys: ['2000s', '2000','2001','2002','2003','2004','2005'], label: '2000s popular songs' },
+      { keys: ['retro', 'classic', 'old', 'purana', 'purani'], label: 'classic retro songs' },
+      { keys: ['lofi', 'lo-fi', 'chill'], label: 'lofi chill music' },
+      { keys: ['party', 'dance', 'club'], label: 'party dance songs' },
+      { keys: ['sad', 'emotional', 'dard', 'broken'], label: 'sad emotional songs' },
+      { keys: ['romantic', 'love', 'pyaar', 'mohabbat'], label: 'romantic love songs' },
+      { keys: ['devotional', 'bhajan', 'mantra', 'spiritual'], label: 'devotional bhajan songs' },
+      { keys: ['rap', 'hip hop', 'hiphop'], label: 'hindi rap songs' },
+    ];
+
+    const lower = (title + ' ' + channel).toLowerCase();
+    for (const era of eraMap) {
+      if (era.keys.some(k => lower.includes(k))) {
+        return era.label;
+      }
+    }
+
+    // Fallback: use artist name + 'songs'
+    const artist = channel.split(' ').slice(0, 3).join(' ');
+    return `${artist} songs`;
+  };
+
+  const buildVideoRadioQuery = (video) => {
+    const title = video.title || '';
+    const channel = video.channel || '';
+    // Use first 4-5 meaningful words from title
+    const words = title.replace(/[|\-–—:]/g, ' ').split(' ').filter(w => w.length > 3).slice(0, 4).join(' ');
+    return words || channel;
+  };
+
+  // ── Radio fetch refs (initialized before playSong) ──────────
+  const radioFetchingRef = useRef(false);
+
+
   const getDominantColor = (url) => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -225,6 +298,66 @@ export default function App() {
       setIsPlaying(false);
     }
   }, [current, playlists, autoTheme, quality]);
+
+  // ── Radio / Autoplay (defined after playSong to avoid TDZ) ───
+  const fetchMusicRadio = useCallback(async (song) => {
+    if (radioFetchingRef.current) return false;
+    radioFetchingRef.current = true;
+    try {
+      const q = buildRadioQuery(song);
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (!data.error && Array.isArray(data) && data.length > 0) {
+        const radio = data.filter(s => s.id !== song.id).slice(0, 5);
+        if (radio.length > 0) {
+          const [nextPlay, ...remaining] = radio;
+          setQueue(prev => [...prev, ...remaining]);
+          showToast(`📻 Radio: Playing similar songs...`);
+          playSong(nextPlay);
+          return true;
+        }
+      }
+    } catch (_) {}
+    finally { radioFetchingRef.current = false; }
+    return false;
+  }, [playSong]);
+
+  const fetchVideoRadio = useCallback(async (video) => {
+    if (radioFetchingRef.current) return [];
+    radioFetchingRef.current = true;
+    try {
+      const q = buildVideoRadioQuery(video);
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (!data.error && Array.isArray(data) && data.length > 0) {
+        const related = data.filter(v => v.id !== video.id).slice(0, 5);
+        return related;
+      }
+    } catch (_) {}
+    finally { radioFetchingRef.current = false; }
+    return [];
+  }, []);
+
+  const playNextVideo = useCallback(async (currentVid) => {
+    if (!autoPlay) return;
+    let nextVid = null;
+    if (results && results.length > 0 && mode === 'video') {
+      const idx = results.findIndex(v => v.id === currentVid.id);
+      if (idx !== -1 && idx < results.length - 1) {
+        nextVid = results[idx + 1];
+      }
+    }
+    if (!nextVid) {
+      const related = await fetchVideoRadio(currentVid);
+      if (related && related.length > 0) nextVid = related[0];
+    }
+    if (nextVid) {
+      setActiveVideo(nextVid);
+      showToast(`🎬 Autoplay: Playing next related video`);
+    } else {
+      showToast(`No more videos to play`);
+    }
+  }, [results, mode, autoPlay, fetchVideoRadio]);
 
   const togglePlay = useCallback(async () => {
     if (!current) return;
@@ -315,6 +448,13 @@ export default function App() {
     const handleEnded = async () => {
       if (repeat === 'one') {
         audio.play();
+      } else if (queue.length > 0) {
+        playNext();
+      } else if (autoPlay && current) {
+        const startedRadio = await fetchMusicRadio(current);
+        if (!startedRadio) {
+          playNext();
+        }
       } else {
         playNext();
       }
@@ -394,16 +534,18 @@ export default function App() {
         </div>
       )}
 
-      <TopBar doSearch={doSearch} />
+      <TopBar doSearch={doSearch} mode={mode} />
       
-      <Sidebar view={view} setView={setView} />
+      <Sidebar view={view} setView={setView} mode={mode} setMode={setMode} />
       
       <MainContent 
         view={view}
+        mode={mode}
         results={results}
         loading={loading}
         error={error}
         searchQuery={searchQuery}
+        channelName={channelName}
         current={current}
         playlists={playlists}
         setPlaylists={setPlaylists}
@@ -414,6 +556,7 @@ export default function App() {
         playNext={playNext}
         addToPlaylist={addToPlaylist}
         doSearch={doSearch}
+        doChannelSearch={doChannelSearch}
         setView={setView}
         themeColor={themeColor}
         setThemeColor={setThemeColor}
@@ -425,6 +568,9 @@ export default function App() {
         setBgGradient={setBgGradient}
         autoTheme={autoTheme}
         setAutoTheme={setAutoTheme}
+        onPlayVideo={setActiveVideo}
+        savedVideos={savedVideos}
+        toggleSaveVideo={toggleSaveVideo}
       />
       
       <PlayerBar 
@@ -450,6 +596,15 @@ export default function App() {
         miniMode={miniMode}
         setMiniMode={setMiniMode}
       />
+
+      {activeVideo && (
+        <VideoPlayer
+          video={activeVideo}
+          onClose={() => setActiveVideo(null)}
+          onVideoEnded={playNextVideo}
+          autoPlay={autoPlay}
+        />
+      )}
 
       {nowPlaying && (
         <NowPlaying 

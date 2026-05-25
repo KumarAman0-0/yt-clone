@@ -1,6 +1,16 @@
 import React from 'react';
 
-export default function Sidebar({ view, setView }) {
+export default function Sidebar({ view, setView, mode, setMode }) {
+  const handleModeToggle = () => {
+    if (mode === 'video') {
+      setMode('music');
+      setView('home');
+    } else {
+      setMode('video');
+      setView('search');
+    }
+  };
+
   return (
     <nav className="sidebar">
       <button 
@@ -17,7 +27,27 @@ export default function Sidebar({ view, setView }) {
         <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12zM10 9v3h4v-3h-4z"/></svg>
         <span>Library</span>
       </button>
-      <button 
+
+      {/* Mode Toggle */}
+      <button
+        className={`nav-item nav-mode-toggle ${mode === 'video' ? 'nav-mode-video' : 'nav-mode-music'}`}
+        id="nav-mode-toggle"
+        onClick={handleModeToggle}
+      >
+        {mode === 'video' ? (
+          <>
+            <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+            <span>Music</span>
+          </>
+        ) : (
+          <>
+            <svg viewBox="0 0 24 24"><path d="M21 3H3a2 2 0 00-2 2v14a2 2 0 002 2h18a2 2 0 002-2V5a2 2 0 00-2-2zm-9 13l-6-4 6-4v8z"/></svg>
+            <span>Video</span>
+          </>
+        )}
+      </button>
+
+      <button
         className={`nav-item ${view === 'themes' ? 'active' : ''}`} 
         onClick={() => setView('themes')}
       >
@@ -27,3 +57,4 @@ export default function Sidebar({ view, setView }) {
     </nav>
   );
 }
+

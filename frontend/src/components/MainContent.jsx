@@ -7,10 +7,12 @@ function fmt(s) {
 
 export default function MainContent({
   view,
+  mode,
   results,
   loading,
   error,
   searchQuery,
+  channelName,
   current,
   playlists,
   setPlaylists,
@@ -21,6 +23,7 @@ export default function MainContent({
   playNext,
   addToPlaylist,
   doSearch,
+  doChannelSearch,
   setView,
   themeColor,
   setThemeColor,
@@ -31,10 +34,15 @@ export default function MainContent({
   bgGradient,
   setBgGradient,
   autoTheme,
-  setAutoTheme
+  setAutoTheme,
+  onPlayVideo,
+  savedVideos = [],
+  toggleSaveVideo
 }) {
   const [activePlaylist, setActivePlaylist] = useState(null);
-  const [showAddMenu, setShowAddMenu] = useState(null); // track id
+  const [showAddMenu, setShowAddMenu] = useState(null);
+
+  const isSaved = (id) => savedVideos.some(v => v.id === id);
 
   const handleCreatePlaylist = () => {
     const name = window.prompt("Playlist name:");
@@ -117,6 +125,149 @@ export default function MainContent({
   }
 
   if (view === 'home') {
+    if (mode === 'video') {
+      return (
+        <main className="main">
+          {loading && <Loading />}
+          
+          {/* Premium Video Hero Banner */}
+          <div className="hero-banner video-hero-banner" style={{
+            width: '100%',
+            height: '340px',
+            borderRadius: '24px',
+            marginBottom: '36px',
+            position: 'relative',
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 60px',
+            background: 'linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.85))',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+          }}>
+            <img 
+              src="https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1200&h=600&fit=crop" 
+              alt="Video Hero" 
+              style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', zIndex:-1, filter:'brightness(0.55)' }}
+            />
+            <div className="hero-content" style={{ zIndex:1, maxWidth:'600px' }}>
+              <span style={{ background:'var(--accent)', color:'#fff', fontSize:'12px', fontWeight:'800', padding:'6px 14px', borderRadius:'100px', textTransform:'uppercase', letterSpacing:'1px', display:'inline-block', marginBottom:'16px' }}>Video Space</span>
+              <h1 style={{ fontSize:'clamp(32px, 5vw, 52px)', fontWeight:'900', color:'#fff', marginBottom:'16px', lineHeight:'1.1', textShadow:'0 4px 12px rgba(0,0,0,0.6)' }}>
+                Watch & Discover <br/> Trending Content
+              </h1>
+              <p style={{ fontSize:'18px', color:'rgba(255,255,255,0.85)', marginBottom:'28px', maxWidth:'500px' }}>
+                Explore high definition music videos, live streams, tutorials, and watch list favorites.
+              </p>
+              <div style={{ display:'flex', gap:'16px' }}>
+                <button className="btn-play" onClick={() => doSearch('Trending Music Videos')} style={{ padding:'12px 32px', fontSize:'16px', borderRadius:'100px' }}>Watch Trending</button>
+                <button className="btn-secondary" onClick={() => setView('library')} style={{ padding:'12px 32px', fontSize:'16px', borderRadius:'100px', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)' }}>Watch Later</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Categories Shelf */}
+          <div className="video-categories-pills" style={{ display:'flex', gap:'12px', overflowX:'auto', paddingBottom:'8px', marginBottom:'40px', scrollbarWidth:'none' }}>
+            {['Trending', 'Hindi Music', 'Lo-Fi Videos', 'Podcasts', 'Live Streams', 'Gaming', 'Tech Reviews', 'Comedy'].map(cat => (
+              <button 
+                key={cat} 
+                className="video-cat-pill" 
+                onClick={() => doSearch(cat)}
+                style={{ 
+                  padding:'8px 20px', 
+                  borderRadius:'100px', 
+                  background:'rgba(255,255,255,0.06)', 
+                  border:'1px solid rgba(255,255,255,0.08)',
+                  color:'#fff',
+                  fontSize:'14px',
+                  fontWeight:'600',
+                  cursor:'pointer',
+                  whiteSpace:'nowrap',
+                  transition:'all 0.25s'
+                }}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          <div className="home-sections">
+            {/* Top Video Channels */}
+            <section className="shelf" style={{marginBottom:'56px'}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:'24px'}}>
+                <h2 className="shelf-title" style={{fontSize:'26px', fontWeight:'800'}}>Explore Popular Channels</h2>
+              </div>
+              <div className="shelf-grid" style={{display:'flex', gap:'32px', overflowX:'auto', paddingBottom:'16px', scrollbarWidth:'none'}}>
+                {[
+                  { name: 'GateWay Classes', handle: '204K subscribers' },
+                  { name: 'Coke Studio', handle: '14M subscribers' },
+                  { name: 'Lofi Girl', handle: '14.3M subscribers' },
+                  { name: 'T-Series', handle: '260M subscribers' },
+                  { name: 'MKBHD', handle: '18M subscribers' },
+                ].map(ch => (
+                  <div key={ch.name} onClick={() => doChannelSearch(ch.name)} className="artist-card" style={{textAlign:'center', cursor:'pointer', flexShrink:0, transition:'transform 0.3s'}}>
+                    <div style={{
+                      width:'140px', 
+                      height:'140px', 
+                      borderRadius:'50%', 
+                      marginBottom:'16px', 
+                      background:'linear-gradient(135deg, #FF0000, #ff6b6b)',
+                      display:'flex',
+                      alignItems:'center',
+                      justifyContent:'center',
+                      boxShadow:'0 12px 24px rgba(255,0,0,0.25)', 
+                      border:'2px solid rgba(255,255,255,0.1)',
+                      fontSize:'42px',
+                      fontWeight:'800',
+                      color:'#fff'
+                    }}>
+                      {ch.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{fontSize:'16px', fontWeight:'700', color:'#fff'}}>{ch.name}</div>
+                    <div style={{fontSize:'13px', color:'var(--text-muted)'}}>{ch.handle}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Video Categories Grid */}
+            <section className="shelf" style={{marginBottom:'56px'}}>
+              <h2 className="shelf-title" style={{fontSize:'26px', fontWeight:'800', marginBottom:'24px'}}>Browse Video Formats</h2>
+              <div className="shelf-grid" style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:'24px'}}>
+                {[
+                  { name: 'Trending Clips', color: '#e52d27', color2: '#b31217', icon: '🎬' },
+                  { name: 'Live Gaming Streams', color: '#7F00FF', color2: '#E100FF', icon: '🎮' },
+                  { name: 'Premium Podcasts', color: '#11998e', color2: '#38ef7d', icon: '🎙️' },
+                  { name: 'Cinematic Hits', color: '#f12711', color2: '#f5af19', icon: '🎥' },
+                  { name: 'Educational Tutorials', color: '#00c6ff', color2: '#0072ff', icon: '🎓' },
+                  { name: 'Comedy & Vlogs', color: '#ff4b1f', color2: '#ff9068', icon: '🔥' },
+                ].map(genre => (
+                  <div 
+                    key={genre.name} 
+                    onClick={() => doSearch(genre.name)} 
+                    style={{
+                      height:'150px', 
+                      background: `linear-gradient(135deg, ${genre.color}, ${genre.color2})`, 
+                      borderRadius:'20px', 
+                      padding:'24px', 
+                      position:'relative',
+                      cursor:'pointer',
+                      boxShadow:'0 15px 30px rgba(0,0,0,0.4)',
+                      overflow:'hidden',
+                      transition:'all 0.3s'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-10px)'; e.currentTarget.style.boxShadow = '0 25px 50px rgba(0,0,0,0.6)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 15px 30px rgba(0,0,0,0.4)'; }}
+                  >
+                    <div style={{ fontSize:'22px', fontWeight:'900', color:'#fff', lineHeight:'1.2', textShadow:'0 2px 4px rgba(0,0,0,0.3)' }}>{genre.name}</div>
+                    <div style={{ position:'absolute', bottom:'-10px', right:'-10px', fontSize:'80px', opacity:'0.25', transform:'rotate(-15deg)' }}>{genre.icon}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        </main>
+      );
+    }
+
     return (
       <main className="main">
         {loading && <Loading />}
@@ -284,6 +435,45 @@ export default function MainContent({
           <h1 className="header-title">Your Library</h1>
           <button className="btn-play" onClick={handleCreatePlaylist}>+ New Playlist</button>
         </div>
+
+        {/* ── Saved Videos (Watch Later) ── */}
+        {savedVideos.length > 0 && (
+          <section style={{marginBottom:'48px'}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+              <h2 style={{fontSize:'20px', fontWeight:'700', display:'flex', alignItems:'center', gap:'10px'}}>
+                <svg viewBox="0 0 24 24" style={{width:22,height:22,fill:'var(--accent)'}}><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15l-5-2.18L7 18V5h10v13z"/></svg>
+                Watch Later
+              </h2>
+              <span style={{fontSize:'13px', color:'var(--text-muted)'}}>{savedVideos.length} videos</span>
+            </div>
+            <div className="video-grid">
+              {savedVideos.map((v, i) => (
+                <div key={`saved-${v.id}-${i}`} className="video-card">
+                  <div className="video-thumb-wrap" onClick={() => onPlayVideo(v)}>
+                    <img src={v.thumbnail} alt={v.title} className="video-thumb" loading="lazy" />
+                    <div className="video-play-overlay">
+                      <div className="video-play-btn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+                    </div>
+                    {v.duration > 0 && <span className="video-duration-badge">{fmt(v.duration)}</span>}
+                  </div>
+                  <div className="video-card-info">
+                    <p className="video-card-title" onClick={() => onPlayVideo(v)}>{v.title}</p>
+                    <div className="video-card-meta">
+                      <span className="video-card-channel video-card-channel-link" onClick={() => doChannelSearch(v.channel)}>{v.channel}</span>
+                      <button className="video-save-btn saved" onClick={() => toggleSaveVideo(v)} title="Remove">
+                        <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+                        Saved
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Music Playlists ── */}
+        <h2 style={{fontSize:'20px', fontWeight:'700', marginBottom:'20px'}}>Music Playlists</h2>
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))', gap:'24px'}}>
           {Object.keys(playlists).map(name => (
             <div key={name} className="playlist-card" onClick={() => setActivePlaylist(name)} style={{cursor:'pointer'}}>
@@ -295,6 +485,62 @@ export default function MainContent({
             </div>
           ))}
         </div>
+      </main>
+    );
+  }
+
+  // ── CHANNEL VIEW ─────────────────────────────────────────────────────
+  if (view === 'channel') {
+    return (
+      <main className="main">
+        {loading && <Loading />}
+        <button className="btn-back" onClick={() => setView('search')}>← Back to Results</button>
+        <div className="channel-header">
+          <div className="channel-avatar">
+            {channelName?.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h1 className="header-title" style={{marginBottom:6}}>{channelName}</h1>
+            <p style={{color:'var(--text-muted)', fontSize:14}}>{results.length} videos found</p>
+          </div>
+        </div>
+        {results.length === 0 ? (
+          <div className="video-empty">
+            <p style={{color:'var(--text-muted)'}}>No videos found for this channel</p>
+          </div>
+        ) : (
+          <div className="video-grid">
+            {results.map((v, i) => (
+              <div key={`ch-${v.id}-${i}`} className="video-card">
+                <div className="video-thumb-wrap" onClick={() => onPlayVideo(v)}>
+                  <img src={v.thumbnail} alt={v.title} className="video-thumb" loading="lazy" />
+                  <div className="video-play-overlay">
+                    <div className="video-play-btn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+                  </div>
+                  {v.duration > 0 && <span className="video-duration-badge">{fmt(v.duration)}</span>}
+                  {v.duration > 0 && v.duration < 60 && <span className="video-shorts-badge">Shorts</span>}
+                </div>
+                <div className="video-card-info">
+                  <p className="video-card-title" onClick={() => onPlayVideo(v)}>{v.title}</p>
+                  <div className="video-card-meta">
+                    <span className="video-card-channel">{v.channel}</span>
+                    <button
+                      className={`video-save-btn ${isSaved(v.id) ? 'saved' : ''}`}
+                      onClick={(e) => { e.stopPropagation(); toggleSaveVideo(v); }}
+                    >
+                      {isSaved(v.id) ? (
+                        <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15l-5-2.18L7 18V5h10v13z"/></svg>
+                      )}
+                      {isSaved(v.id) ? 'Saved' : 'Watch Later'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </main>
     );
   }
@@ -319,6 +565,76 @@ export default function MainContent({
   }
 
   if (view === 'search') {
+    // ── VIDEO MODE ───────────────────────────────────────────────────────────
+    if (mode === 'video') {
+      if (results.length === 0) return (
+        <main className="main">
+          {loading && <Loading />}
+          <div className="video-empty">
+            <svg viewBox="0 0 24 24" style={{width:64,height:64,fill:'rgba(255,255,255,0.15)',marginBottom:16}}>
+              <path d="M21 3H3a2 2 0 00-2 2v14a2 2 0 002 2h18a2 2 0 002-2V5a2 2 0 00-2-2zm-9 13l-6-4 6-4v8z"/>
+            </svg>
+            <p style={{color:'var(--text-muted)',fontSize:16}}>Search for YouTube videos above</p>
+          </div>
+        </main>
+      );
+      return (
+        <main className="main">
+          {loading && <Loading />}
+          <div className="video-mode-header">
+            <h1 className="header-title" style={{marginBottom:0}}>Results for "{searchQuery}"</h1>
+            <p style={{color:'var(--text-muted)',fontSize:14,marginTop:4}}>{results.length} videos found</p>
+          </div>
+          <div className="video-grid">
+            {results.map((v, i) => (
+              <div
+                key={`${v.id}-${i}`}
+                className="video-card"
+                id={`video-card-${v.id}`}
+              >
+                <div className="video-thumb-wrap" onClick={() => onPlayVideo(v)}>
+                  <img src={v.thumbnail} alt={v.title} className="video-thumb" loading="lazy" />
+                  <div className="video-play-overlay">
+                    <div className="video-play-btn">
+                      <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    </div>
+                  </div>
+                  {v.duration > 0 && (
+                    <span className="video-duration-badge">{fmt(v.duration)}</span>
+                  )}
+                </div>
+                <div className="video-card-info">
+                  <p className="video-card-title" onClick={() => onPlayVideo(v)}>{v.title}</p>
+                  <div className="video-card-meta">
+                    <span
+                      className="video-card-channel video-card-channel-link"
+                      onClick={() => doChannelSearch(v.channel)}
+                      title={`See videos from ${v.channel}`}
+                    >
+                      {v.channel}
+                    </span>
+                    <button
+                      className={`video-save-btn ${isSaved(v.id) ? 'saved' : ''}`}
+                      title={isSaved(v.id) ? 'Remove from Watch Later' : 'Save to Watch Later'}
+                      onClick={(e) => { e.stopPropagation(); toggleSaveVideo(v); }}
+                    >
+                      {isSaved(v.id) ? (
+                        <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15l-5-2.18L7 18V5h10v13z"/></svg>
+                      )}
+                      {isSaved(v.id) ? 'Saved' : 'Watch Later'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </main>
+      );
+    }
+
+    // ── MUSIC MODE (unchanged) ───────────────────────────────────────────────
     if (results.length === 0) return <main className="main">{loading && <Loading />}<div className="empty-msg">No results found</div></main>;
     const topHit = results[0];
     return (
